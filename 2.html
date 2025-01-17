@@ -111,30 +111,24 @@
         .fullscreen-button:hover {
             background-color: #444444;
         }
-        #requestRateInput {
-            width: 60px;
-            font-size: 14px;
-            text-align: center;
-        }
         .request-controls {
             position: absolute;
-            top: 10px;
+            bottom: 50px; /* 放在请求计数的上方 */
             right: 10px;
             display: flex;
-            flex-direction: row;
+            flex-direction: column;
             align-items: center;
+            z-index: 100;
+        }
+        .request-controls input {
+            font-size: 0.8rem;
+            text-align: center;
+            width: 50px;
+            margin-top: 5px;
+            padding: 5px;
         }
         .request-controls button {
-            font-size: 14px;
-            background-color: black;
-            color: white;
-            padding: 5px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        .request-controls button:hover {
-            background-color: #444444;
+            background-color: #000000;
         }
     </style>
 </head>
@@ -164,54 +158,69 @@
         </div>
     </div>
 
-    <div class="request-info" id="requestInfo"></div>
+    <div class="request-info" id="requestInfo">
+        <p>请求时间：加载中...</p>
+        <p>返回时间：加载中...</p>
+        <p>状态：请求中...</p>
+        <p>延迟：0ms</p>
+    </div>
+
     <div class="counter" id="counter">请求次数：0</div>
 
     <div class="request-controls" id="requestControls">
-        <input type="number" id="requestRateInput" value="10" readonly />
-        <button id="toggleRequestButton" onclick="toggleRequest()">暂停请求</button>
+        <button class="button" id="pauseButton" onclick="toggleRequest()">暂停请求</button>
+        <input class="button" type="text" id="requestRate" value="10" readonly />
     </div>
 
     <script>
         let offset = 0;
         let requestCount = 0;
-        let serviceAvailable = false;
-        let idleTimeout;
-        let maxRequests = 10000000;
-        let requestInterval = 100;
-        let isFullScreen = false;
         let isRequesting = true;
+        let requestInterval = 100;
+        let maxRequests = 10000000;
+        let isFullScreen = false;
 
         async function syncTime() {
+            if (!isRequesting) return;
+
             try {
                 const start = performance.now();
                 const response = await fetch('https://timeapi.io/api/Time/current/zone?timeZone=Asia/Shanghai');
-                requestCount++;
                 const data = await response.json();
-                const end = performance.now();
+                
+                // 请求成功后，累加请求次数
+                requestCount++;
 
                 const serverTime = new Date(data.dateTime);
                 const localTime = new Date();
 
                 updateTime(serverTime, localTime);
-                
+
+                const end = performance.now();
+
                 const delay = (end - start).toFixed(2);
                 updateRequestInfo(`请求时间：${formatTime(localTime)}，返回时间：${formatTime(serverTime)}，延迟：${delay}ms`);
+
+                // 更新请求次数显示
+                updateElement("counter", `请求次数：${requestCount}`);
             } catch (error) {
                 console.error('同步时间失败：', error);
-                serviceAvailable = false;
                 updateRequestInfo(`请求失败，时间：${new Date().toLocaleTimeString()}`);
             }
         }
 
         function updateTime(serverTime, localTime) {
-            updateElement("time", formatTime(serverTime));
+            updateElement("time", formatTimeWithoutMilliseconds(serverTime));
             updateElement("date", formatDate(serverTime));
             updateElement("weekday", formatWeekday(serverTime));
         }
 
         function formatDate(date) {
-            return `${String(date.getMonth() + 1).padStart(2, '0')}月${String(date.getDate()).padStart(2, '0')}日`;
+            return `${date.getFullYear()}年${String(date.getMonth() + 1).padStart(2, '0')}月${String(date.getDate()).padStart(2, '0')}日`;
+        }
+
+        function formatTimeWithoutMilliseconds(date) {
+            return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:${String(date.getSeconds()).padStart(2, '0')}`;
         }
 
         function formatTime(date) {
@@ -262,9 +271,9 @@
                     elem.msRequestFullscreen();
                 }
                 document.getElementById("controls").style.display = "none";
+                document.getElementById("requestControls").style.display = "none";
                 isFullScreen = true;
                 document.getElementById("fullscreenButton").textContent = "退出全屏";
-                document.getElementById("requestControls").style.display = "none";
             } else {
                 if (document.exitFullscreen) {
                     document.exitFullscreen();
@@ -276,38 +285,38 @@
                     document.msExitFullscreen();
                 }
                 document.getElementById("controls").style.display = "flex";
+                document.getElementById("requestControls").style.display = "flex";
                 isFullScreen = false;
                 document.getElementById("fullscreenButton").textContent = "全屏";
-                document.getElementById("requestControls").style.display = "flex";
             }
         }
+
+        let requestIntervalHandle;
 
         function toggleRequest() {
-            const requestRateInput = document.getElementById("requestRateInput");
+            const requestRateInput = document.getElementById('requestRate');
             if (isRequesting) {
                 isRequesting = false;
-                document.getElementById("toggleRequestButton").textContent = "恢复请求";
-                requestRateInput.readOnly = false;
+                document.getElementById('pauseButton').textContent = '恢复请求';
+                requestRateInput.readOnly = false;  // 允许编辑文本框
             } else {
                 isRequesting = true;
-                document.getElementById("toggleRequestButton").textContent = "暂停请求";
-                requestRateInput.readOnly = true;
-                requestInterval = parseInt(requestRateInput.value);
+                document.getElementById('pauseButton').textContent = '暂停请求';
+                requestRateInput.readOnly = true;  // 禁止编辑文本框
+                requestInterval = parseInt(requestRateInput.value) || 10;
+                if (requestIntervalHandle) clearInterval(requestIntervalHandle);
+                requestIntervalHandle = setInterval(syncTime, 1000 / requestInterval);  // 更新请求频率
             }
         }
 
-        function startRequesting() {
-            if (isRequesting) {
-                syncTime();
-            }
-        }
-
-        setInterval(startRequesting, requestInterval);
+        setInterval(syncTime, requestInterval);
 
         setInterval(() => {
-            document.getElementById("counter").textContent = `请求次数：${requestCount}`;
+            if (requestCount >= maxRequests) {
+                requestCount = 0;
+            }
+            document.getElementById('counter').textContent = `请求次数：${requestCount}`;
         }, 1000);
-
     </script>
 </body>
 </html>
