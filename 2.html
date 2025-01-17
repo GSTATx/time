@@ -32,7 +32,8 @@
             gap: 20px;
             position: absolute;
             bottom: 20px;
-            left: 20px;
+            right: 20px;
+            z-index: 10;
         }
         .control-group {
             display: flex;
@@ -82,6 +83,7 @@
             cursor: pointer;
             font-size: 1.5rem;
             transition: background-color 0.3s ease;
+            z-index: 20;
         }
         .fullscreen-btn:hover {
             background-color: #333333; /* 悬浮时变成深灰色 */
@@ -94,6 +96,7 @@
             color: #D3D3D3; /* 更淡的灰色 */
             cursor: pointer;
             display: none; /* 默认不显示 */
+            z-index: 20;
         }
         .exit-fullscreen-btn:hover {
             color: #ffffff;
@@ -140,6 +143,7 @@
         let serviceAvailable = false;
         const maxRetries = 3; // 最大重试次数
         let syncCount = 0; // 校正次数计数器
+        let isFullScreen = false;
 
         // 更新按钮颜色与右上角文字一致
         function updateButtonColor() {
@@ -153,6 +157,7 @@
         // 同步时间函数
         async function syncTime(retryCount = 0) {
             try {
+                // 请求API获取北京时间
                 const response = await fetch('https://timeapi.io/api/Time/current/zone?timeZone=Asia/Shanghai');
                 if (!response.ok) throw new Error('API响应失败');
                 const data = await response.json();
@@ -197,6 +202,92 @@
             syncTime(); // 每秒请求一次
         }, 1000);
 
+        // 时间字体大小调节
+        let timeFontSize = 300; // 初始时间字体大小
+        document.getElementById('increaseTimeFont').addEventListener('click', () => {
+            timeFontSize += 20;
+            document.getElementById('time').style.fontSize = `${timeFontSize}px`;
+            document.getElementById('timeLabel').textContent = `字体大小: ${timeFontSize}px`;
+        });
+
+        document.getElementById('decreaseTimeFont').addEventListener('click', () => {
+            if (timeFontSize > 50) {
+                timeFontSize -= 20;
+                document.getElementById('time').style.fontSize = `${timeFontSize}px`;
+                document.getElementById('timeLabel').textContent = `字体大小: ${timeFontSize}px`;
+            }
+        });
+
+        // 日期字体大小调节
+        let dateFontSize = 145; // 初始日期字体大小
+        document.getElementById('increaseDateFont').addEventListener('click', () => {
+            dateFontSize += 20;
+            document.getElementById('date').style.fontSize = `${dateFontSize}px`;
+            document.getElementById('dateLabel').textContent = `字体大小: ${dateFontSize}px`;
+        });
+
+        document.getElementById('decreaseDateFont').addEventListener('click', () => {
+            if (dateFontSize > 50) {
+                dateFontSize -= 20;
+                document.getElementById('date').style.fontSize = `${dateFontSize}px`;
+                document.getElementById('dateLabel').textContent = `字体大小: ${dateFontSize}px`;
+            }
+        });
+
+        // 星期字体大小调节
+        let weekdayFontSize = 170; // 初始星期字体大小
+        document.getElementById('increaseWeekdayFont').addEventListener('click', () => {
+            weekdayFontSize += 20;
+            document.getElementById('weekday').style.fontSize = `${weekdayFontSize}px`;
+            document.getElementById('weekdayLabel').textContent = `字体大小: ${weekdayFontSize}px`;
+        });
+
+        document.getElementById('decreaseWeekdayFont').addEventListener('click', () => {
+            if (weekdayFontSize > 50) {
+                weekdayFontSize -= 20;
+                document.getElementById('weekday').style.fontSize = `${weekdayFontSize}px`;
+                document.getElementById('weekdayLabel').textContent = `字体大小: ${weekdayFontSize}px`;
+            }
+        });
+
+        // 全屏/退出全屏功能
+        document.getElementById('toggleFullScreen').addEventListener('click', () => {
+            if (!isFullScreen) {
+                if (document.documentElement.requestFullscreen) {
+                    document.documentElement.requestFullscreen();
+                } else if (document.documentElement.mozRequestFullScreen) {
+                    document.documentElement.mozRequestFullScreen();
+                } else if (document.documentElement.webkitRequestFullscreen) {
+                    document.documentElement.webkitRequestFullscreen();
+                } else if (document.documentElement.msRequestFullscreen) {
+                    document.documentElement.msRequestFullscreen();
+                }
+                isFullScreen = true;
+                document.getElementById('toggleFullScreen').style.display = "none";
+                document.getElementById('controls').style.display = "none"; // 隐藏所有控制按钮
+                document.getElementById('exitFullScreen').style.display = "block"; // 显示退出全屏按钮
+            }
+        });
+
+        // 退出全屏按钮
+        document.getElementById('exitFullScreen').addEventListener('click', () => {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.mozCancelFullScreen) {
+                document.mozCancelFullScreen();
+            } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+            } else if (document.msExitFullscreen) {
+                document.msExitFullscreen();
+            }
+            isFullScreen = false;
+            document.getElementById('toggleFullScreen').style.display = "block"; // 恢复全屏按钮
+            document.getElementById('controls').style.display = "block"; // 恢复控制按钮
+            document.getElementById('exitFullScreen').style.display = "none"; // 隐藏退出全屏按钮
+        });
+
+        // 初始化页面时，先同步一次时间
+        syncTime();
     </script>
 </body>
 </html>
