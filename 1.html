@@ -146,12 +146,22 @@
         function toggleFullScreen() {
             const elem = document.documentElement;
             if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-                (elem.requestFullscreen || elem.webkitRequestFullscreen).call(elem).then(() => {
+                if (elem.requestFullscreen) {
+                    elem.requestFullscreen().then(() => {
+                        isFullScreen = true;
+                        startIdleTimer();
+                    }).catch(err => console.log(`Error attempting to enable full-screen mode: ${err.message}`));
+                } else if (elem.webkitRequestFullscreen) { // Safari support
+                    elem.webkitRequestFullscreen();
                     isFullScreen = true;
                     startIdleTimer();
-                }).catch(err => console.log(`Error attempting to enable full-screen mode: ${err.message}`));
+                } 
             } else {
-                (document.exitFullscreen || document.webkitExitFullscreen).call(document).catch(err => console.log(`Error attempting to exit full-screen: ${err.message}`));
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) { // Safari support
+                    document.webkitExitFullscreen();
+                }
                 isFullScreen = false;
                 showControls();
             }
@@ -184,8 +194,10 @@
             }
         });
 
+        // 支持触摸和鼠标事件
         document.addEventListener('mousemove', startIdleTimer);
         document.addEventListener('keypress', startIdleTimer);
+        document.addEventListener('touchstart', startIdleTimer);
         document.addEventListener('click', () => {
             if (isFullScreen) {
                 showControls();
