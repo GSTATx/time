@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh">
 <head>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>北京时间显示</title>
-    <style type="text/css">
+    <style>
         body {
-            background-color: #1e2127;
+            background-color: #000000;
             color: #ffffff;
             font-family: Arial, sans-serif;
             margin: 0;
@@ -16,204 +16,179 @@
             align-items: center;
             height: 100vh;
         }
-        .date {
-            font-size: 145px;
-            margin-bottom: 20px;
+        .date, .time, .weekday {
+            text-align: center;
         }
-        .time {
-            font-size: 300px;
-            font-weight: bold;
-        }
-        .weekday {
-            font-size: 170px;
-            margin-top: 10px;
-        }
+        .date { font-size: 8vw; margin-bottom: 1rem; }
+        .time { font-size: 15vw; font-weight: bold; }
+        .weekday { font-size: 9vw; margin-top: 0.5rem; }
+        .error { font-size: 2vw; color: #ff4444; text-align: center; }
         .controls {
-            margin-top: 20px;
+            margin-top: 2rem;
             display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
         }
         .button {
-            margin: 5px;
-            padding: 10px 20px;
-            font-size: 16px;
-            color: #1e2127;
-            background-color: #53d2fa;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        .button:hover {
-            background-color: #41b0d0;
-        }
-        .label {
-            font-size: 12px;
+            margin: 0.5rem;
+            padding: 0.5rem 1rem;
+            font-size: 1rem;
             color: #ffffff;
-            margin-bottom: 5px;
+            background-color: #333333;
+            border: 1px solid #ffffff;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .button:hover { background-color: #555555; }
+        .label {
+            font-size: 0.75rem;
+            color: #ffffff;
+            margin-bottom: 0.5rem;
+            text-align: center;
         }
     </style>
 </head>
 <body>
-    <div class="date" id="date">加载中...</div>
-    <div class="time" id="time">--:--:--</div>
-    <div class="weekday" id="weekday">星期几</div>
+    <div class="date" id="date"></div>
+    <div class="time" id="time">错误</div>
+    <div class="weekday" id="weekday"></div>
+    <div class="error" id="error"></div>
 
     <div class="controls" id="controls">
         <div>
             <span class="label" id="timeLabel">字体大小: 300px</span>
-            <button class="button" onclick="increaseTimeSize()">放大时间</button>
-            <button class="button" onclick="decreaseTimeSize()">缩小时间</button>
+            <button class="button" onclick="adjustFontSize('time', 10)">放大时间</button>
+            <button class="button" onclick="adjustFontSize('time', -10)">缩小时间</button>
         </div>
         <div>
             <span class="label" id="dateLabel">字体大小: 145px</span>
-            <button class="button" onclick="increaseDateSize()">放大日期</button>
-            <button class="button" onclick="decreaseDateSize()">缩小日期</button>
+            <button class="button" onclick="adjustFontSize('date', 5)">放大日期</button>
+            <button class="button" onclick="adjustFontSize('date', -5)">缩小日期</button>
         </div>
         <div>
             <span class="label" id="weekdayLabel">字体大小: 170px</span>
-            <button class="button" onclick="increaseWeekdaySize()">放大星期</button>
-            <button class="button" onclick="decreaseWeekdaySize()">缩小星期</button>
+            <button class="button" onclick="adjustFontSize('weekday', 5)">放大星期</button>
+            <button class="button" onclick="adjustFontSize('weekday', -5)">缩小星期</button>
         </div>
         <button class="button" onclick="toggleFullScreen()">全屏显示</button>
     </div>
 
     <script>
-        let offset = 0;
+        let offset = 0; // 时间偏移量
+        let serviceAvailable = false;
         let idleTimeout;
-        let isFullScreen = false;
 
+        // 同步时间
+        async function syncTime() {
+            try {
+                const start = performance.now();
+                const response = await fetch('https://timeapi.io/api/Time/current/zone?timeZone=Asia/Shanghai');
+                if (!response.ok) throw new Error('API响应失败');
+                const data = await response.json();
+                const end = performance.now();
+                const serverTime = new Date(data.dateTime).getTime();
+                const localTime = Date.now();
+                const roundTripDelay = (end - start) / 2;
+                offset = serverTime - localTime + roundTripDelay;
+                serviceAvailable = true;
+                updateTime();
+            } catch (error) {
+                console.error('同步时间失败：', error);
+                serviceAvailable = false;
+                displayError('时间服务不可用，请检查网络连接');
+            }
+        }
+
+        // 更新时间显示
         function updateTime() {
-            const now = new Date(new Date().getTime() + offset);
-            const hours = String(now.getHours()).padStart(2, '0');
-            const minutes = String(now.getMinutes()).padStart(2, '0');
-            const seconds = String(now.getSeconds()).padStart(2, '0');
-            const year = now.getFullYear();
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            const day = String(now.getDate()).padStart(2, '0');
-            const weekDays = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"];
-            const weekDay = weekDays[now.getDay()];
-
-            document.getElementById("time").textContent = `${hours}:${minutes}:${seconds}`;
-            document.getElementById("date").textContent = `${year}年${month}月${day}日`;
-            document.getElementById("weekday").textContent = weekDay; 
+            if (serviceAvailable) {
+                const now = new Date(Date.now() + offset);
+                const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+                const dateStr = `${now.getFullYear()}年${String(now.getMonth() + 1).padStart(2, '0')}月${String(now.getDate()).padStart(2, '0')}日`;
+                const weekdayStr = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"][now.getDay()];
+                
+                updateElement("time", timeStr);
+                updateElement("date", dateStr);
+                updateElement("weekday", weekdayStr);
+            }
         }
 
-        function syncTime() {
-            const start = Date.now();
-            fetch('http://worldtimeapi.org/api/timezone/Asia/Shanghai')
-                .then(response => response.json())
-                .then(data => {
-                    const serverTime = new Date(data.datetime).getTime();
-                    const localTime = new Date().getTime();
-                    const roundTripDelay = (localTime - start) / 2; // 计算网络延迟的中点
-                    offset = serverTime - localTime + roundTripDelay;
-                })
-                .catch(error => {
-                    console.error('无法同步时间：', error);
-                });
+        // 更新指定元素内容
+        function updateElement(id, content) {
+            const element = document.getElementById(id);
+            if (element.textContent !== content) {
+                element.textContent = content;
+            }
         }
 
-        function adjustSize(elementId, delta, labelId) {
+        // 显示错误信息
+        function displayError(message) {
+            updateElement("time", "错误");
+            updateElement("date", "");
+            updateElement("weekday", "");
+            updateElement("error", message);
+        }
+
+        // 调整字体大小
+        function adjustFontSize(elementId, delta) {
             const element = document.getElementById(elementId);
-            const label = document.getElementById(labelId);
             const currentSize = parseInt(window.getComputedStyle(element).fontSize);
             const newSize = currentSize + delta;
             element.style.fontSize = newSize + "px";
-            label.textContent = `字体大小: ${newSize}px`;
+            updateElement(elementId + "Label", `字体大小: ${newSize}px`);
         }
 
-        function increaseTimeSize() {
-            adjustSize("time", 10, "timeLabel");
-        }
-
-        function decreaseTimeSize() {
-            adjustSize("time", -10, "timeLabel");
-        }
-
-        function increaseDateSize() {
-            adjustSize("date", 5, "dateLabel");
-        }
-
-        function decreaseDateSize() {
-            adjustSize("date", -5, "dateLabel");
-        }
-
-        function increaseWeekdaySize() {
-            adjustSize("weekday", 5, "weekdayLabel");
-        }
-
-        function decreaseWeekdaySize() {
-            adjustSize("weekday", -5, "weekdayLabel");
-        }
-
+        // 切换全屏
         function toggleFullScreen() {
             const elem = document.documentElement;
-            if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-                if (elem.requestFullscreen) {
-                    elem.requestFullscreen().then(() => {
-                        isFullScreen = true;
-                        startIdleTimer();
-                    }).catch(err => console.log(`Error attempting to enable full-screen mode: ${err.message}`));
-                } else if (elem.webkitRequestFullscreen) { // Safari support
-                    elem.webkitRequestFullscreen();
-                    isFullScreen = true;
-                    startIdleTimer();
-                } 
+            if (!document.fullscreenElement) {
+                elem.requestFullscreen().catch(err => console.error('全屏失败：', err));
             } else {
-                if (document.exitFullscreen) {
-                    document.exitFullscreen();
-                } else if (document.webkitExitFullscreen) { // Safari support
-                    document.webkitExitFullscreen();
-                }
-                isFullScreen = false;
-                showControls();
+                document.exitFullscreen().catch(err => console.error('退出全屏失败：', err));
             }
         }
 
+        // 全屏变化事件监听
+        document.addEventListener('fullscreenchange', () => {
+            const controls = document.getElementById("controls");
+            if (document.fullscreenElement) {
+                startIdleTimer();
+            } else {
+                clearTimeout(idleTimeout);
+                controls.style.display = "flex";
+            }
+        });
+
+        // 启动隐藏按钮计时器
         function startIdleTimer() {
             clearTimeout(idleTimeout);
             idleTimeout = setTimeout(() => {
-                if (isFullScreen) {
-                    hideControls();
-                }
+                const controls = document.getElementById("controls");
+                controls.style.display = "none";
             }, 3000);
         }
 
-        function hideControls() {
-            document.getElementById("controls").style.display = "none";
-        }
-
-        function showControls() {
-            document.getElementById("controls").style.display = "flex";
-        }
-
-        document.addEventListener('fullscreenchange', () => {
-            isFullScreen = document.fullscreenElement != null || document.webkitFullscreenElement != null;
-            if (isFullScreen) {
+        // 显示按钮并重启计时器（在全屏模式下）
+        document.addEventListener('mousemove', () => {
+            if (document.fullscreenElement) {
+                const controls = document.getElementById("controls");
+                controls.style.display = "flex";
                 startIdleTimer();
-            } else {
-                showControls();
-                clearTimeout(idleTimeout);
             }
         });
 
-        // 支持触摸和鼠标事件
-        document.addEventListener('mousemove', startIdleTimer);
-        document.addEventListener('keypress', startIdleTimer);
-        document.addEventListener('touchstart', startIdleTimer);
         document.addEventListener('click', () => {
-            if (isFullScreen) {
-                showControls();
+            if (document.fullscreenElement) {
+                const controls = document.getElementById("controls");
+                controls.style.display = "flex";
                 startIdleTimer();
             }
         });
 
-        // 定期更新和同步时间
-        setInterval(updateTime, 1000); // 每秒更新本地时间显示
-        setInterval(syncTime, 60 * 1000); // 每分钟同步一次时间
-
-        // 首次加载时即刻同步
-        updateTime();
+        // 初始化
         syncTime();
+        setInterval(updateTime, 1000);
     </script>
 </body>
 </html>
