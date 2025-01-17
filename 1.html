@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>北京时间显示</title>
+    <style type="text/css">
+        body {
+            background-color: #1e2127;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .date {
+            font-size: 145px;
+            margin-bottom: 20px;
+        }
+        .time {
+            font-size: 300px;
+            font-weight: bold;
+        }
+        .weekday {
+            font-size: 170px;
+            margin-top: 10px;
+        }
+        .controls {
+            margin-top: 20px;
+            display: flex;
+        }
+        .button {
+            margin: 5px;
+            padding: 10px 20px;
+            font-size: 16px;
+            color: #1e2127;
+            background-color: #53d2fa;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .button:hover {
+            background-color: #41b0d0;
+        }
+        .label {
+            font-size: 12px;
+            color: #ffffff;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="date" id="date">加载中...</div>
+    <div class="time" id="time">--:--:--</div>
+    <div class="weekday" id="weekday">星期几</div>
+
+    <div class="controls" id="controls">
+        <div>
+            <span class="label" id="timeLabel">字体大小: 300px</span>
+            <button class="button" onclick="increaseTimeSize()">放大时间</button>
+            <button class="button" onclick="decreaseTimeSize()">缩小时间</button>
+        </div>
+        <div>
+            <span class="label" id="dateLabel">字体大小: 145px</span>
+            <button class="button" onclick="increaseDateSize()">放大日期</button>
+            <button class="button" onclick="decreaseDateSize()">缩小日期</button>
+        </div>
+        <div>
+            <span class="label" id="weekdayLabel">字体大小: 170px</span>
+            <button class="button" onclick="increaseWeekdaySize()">放大星期</button>
+            <button class="button" onclick="decreaseWeekdaySize()">缩小星期</button>
+        </div>
+        <button class="button" onclick="toggleFullScreen()">全屏显示</button>
+    </div>
+
+    <script>
+        let offset = 0;
+        let idleTimeout;
+        let isFullScreen = false;
+
+        function updateTime() {
+            const now = new Date(new Date().getTime() + offset);
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const weekDays = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"];
+            const weekDay = weekDays[now.getDay()];
+
+            document.getElementById("time").textContent = `${hours}:${minutes}:${seconds}`;
+            document.getElementById("date").textContent = `${year}年${month}月${day}日`;
+            document.getElementById("weekday").textContent = weekDay; 
+        }
+
+        function syncTime() {
+            fetch('http://worldtimeapi.org/api/timezone/Asia/Shanghai')
+                .then(response => response.json())
+                .then(data => {
+                    const serverTime = new Date(data.datetime).getTime();
+                    const localTime = new Date().getTime();
+                    offset = serverTime - localTime;
+                })
+                .catch(error => {
+                    console.error('无法同步时间：', error);
+                });
+        }
+
+        function adjustSize(elementId, delta, labelId) {
+            const element = document.getElementById(elementId);
+            const label = document.getElementById(labelId);
+            const currentSize = parseInt(window.getComputedStyle(element).fontSize);
+            const newSize = currentSize + delta;
+            element.style.fontSize = newSize + "px";
+            label.textContent = `字体大小: ${newSize}px`;
+        }
+
+        function increaseTimeSize() {
+            adjustSize("time", 10, "timeLabel");
+        }
+
+        function decreaseTimeSize() {
+            adjustSize("time", -10, "timeLabel");
+        }
+
+        function increaseDateSize() {
+            adjustSize("date", 5, "dateLabel");
+        }
+
+        function decreaseDateSize() {
+            adjustSize("date", -5, "dateLabel");
+        }
+
+        function increaseWeekdaySize() {
+            adjustSize("weekday", 5, "weekdayLabel");
+        }
+
+        function decreaseWeekdaySize() {
+            adjustSize("weekday", -5, "weekdayLabel");
+        }
+
+        function toggleFullScreen() {
+            const elem = document.documentElement;
+            if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+                (elem.requestFullscreen || elem.webkitRequestFullscreen).call(elem).then(() => {
+                    isFullScreen = true;
+                    startIdleTimer();
+                }).catch(err => console.log(`Error attempting to enable full-screen mode: ${err.message}`));
+            } else {
+                (document.exitFullscreen || document.webkitExitFullscreen).call(document).catch(err => console.log(`Error attempting to exit full-screen: ${err.message}`));
+                isFullScreen = false;
+                showControls();
+            }
+        }
+
+        function startIdleTimer() {
+            clearTimeout(idleTimeout);
+            idleTimeout = setTimeout(() => {
+                if (isFullScreen) {
+                    hideControls();
+                }
+            }, 3000);
+        }
+
+        function hideControls() {
+            document.getElementById("controls").style.display = "none";
+        }
+
+        function showControls() {
+            document.getElementById("controls").style.display = "flex";
+        }
+
+        document.addEventListener('fullscreenchange', () => {
+            isFullScreen = document.fullscreenElement != null || document.webkitFullscreenElement != null;
+            if (isFullScreen) {
+                startIdleTimer();
+            } else {
+                showControls();
+                clearTimeout(idleTimeout);
+            }
+        });
+
+        document.addEventListener('mousemove', startIdleTimer);
+        document.addEventListener('keypress', startIdleTimer);
+        document.addEventListener('click', () => {
+            if (isFullScreen) {
+                showControls();
+                startIdleTimer();
+            }
+        });
+
+        setInterval(updateTime, 1000);
+        setInterval(syncTime, 10 * 60 * 1000);
+
+        updateTime();
+        syncTime();
+    </script>
+</body>
+</html>
