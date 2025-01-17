@@ -98,12 +98,14 @@
         }
 
         function syncTime() {
+            const start = Date.now();
             fetch('http://worldtimeapi.org/api/timezone/Asia/Shanghai')
                 .then(response => response.json())
                 .then(data => {
                     const serverTime = new Date(data.datetime).getTime();
                     const localTime = new Date().getTime();
-                    offset = serverTime - localTime;
+                    const roundTripDelay = (localTime - start) / 2; // 计算网络延迟的中点
+                    offset = serverTime - localTime + roundTripDelay;
                 })
                 .catch(error => {
                     console.error('无法同步时间：', error);
@@ -205,9 +207,11 @@
             }
         });
 
-        setInterval(updateTime, 1000);
-        setInterval(syncTime, 10 * 60 * 1000);
+        // 定期更新和同步时间
+        setInterval(updateTime, 1000); // 每秒更新本地时间显示
+        setInterval(syncTime, 60 * 1000); // 每分钟同步一次时间
 
+        // 首次加载时即刻同步
         updateTime();
         syncTime();
     </script>
