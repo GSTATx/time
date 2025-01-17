@@ -6,7 +6,7 @@
     <title>北京时间显示</title>
     <style>
         body {
-            background-color: #000000;
+            background-color: #1e2127;
             color: #ffffff;
             font-family: Arial, sans-serif;
             margin: 0;
@@ -33,14 +33,14 @@
             margin: 0.5rem;
             padding: 0.5rem 1rem;
             font-size: 1rem;
-            color: #ffffff;
-            background-color: #333333;
-            border: 1px solid #ffffff;
+            color: #1e2127;
+            background-color: #53d2fa;
+            border: none;
             border-radius: 0.5rem;
             cursor: pointer;
             transition: background-color 0.3s ease;
         }
-        .button:hover { background-color: #555555; }
+        .button:hover { background-color: #41b0d0; }
         .label {
             font-size: 0.75rem;
             color: #ffffff;
@@ -79,7 +79,6 @@
         let serviceAvailable = false;
         let idleTimeout;
 
-        // 同步时间
         async function syncTime() {
             try {
                 const start = performance.now();
@@ -100,7 +99,6 @@
             }
         }
 
-        // 更新时间显示
         function updateTime() {
             if (serviceAvailable) {
                 const now = new Date(Date.now() + offset);
@@ -114,7 +112,6 @@
             }
         }
 
-        // 更新指定元素内容
         function updateElement(id, content) {
             const element = document.getElementById(id);
             if (element.textContent !== content) {
@@ -122,7 +119,6 @@
             }
         }
 
-        // 显示错误信息
         function displayError(message) {
             updateElement("time", "错误");
             updateElement("date", "");
@@ -130,7 +126,6 @@
             updateElement("error", message);
         }
 
-        // 调整字体大小
         function adjustFontSize(elementId, delta) {
             const element = document.getElementById(elementId);
             const currentSize = parseInt(window.getComputedStyle(element).fontSize);
@@ -139,7 +134,6 @@
             updateElement(elementId + "Label", `字体大小: ${newSize}px`);
         }
 
-        // 切换全屏
         function toggleFullScreen() {
             const elem = document.documentElement;
             if (!document.fullscreenElement) {
@@ -149,44 +143,26 @@
             }
         }
 
-        // 全屏变化事件监听
         document.addEventListener('fullscreenchange', () => {
-            const controls = document.getElementById("controls");
             if (document.fullscreenElement) {
                 startIdleTimer();
+                document.getElementById("controls").style.display = "none";
             } else {
                 clearTimeout(idleTimeout);
-                controls.style.display = "flex";
+                document.getElementById("controls").style.display = "flex";
             }
         });
 
-        // 启动隐藏按钮计时器
         function startIdleTimer() {
             clearTimeout(idleTimeout);
             idleTimeout = setTimeout(() => {
-                const controls = document.getElementById("controls");
-                controls.style.display = "none";
+                document.getElementById("controls").style.display = "none";
             }, 3000);
         }
 
-        // 显示按钮并重启计时器（在全屏模式下）
-        document.addEventListener('mousemove', () => {
-            if (document.fullscreenElement) {
-                const controls = document.getElementById("controls");
-                controls.style.display = "flex";
-                startIdleTimer();
-            }
-        });
+        document.addEventListener('mousemove', startIdleTimer);
+        document.addEventListener('keypress', startIdleTimer);
 
-        document.addEventListener('click', () => {
-            if (document.fullscreenElement) {
-                const controls = document.getElementById("controls");
-                controls.style.display = "flex";
-                startIdleTimer();
-            }
-        });
-
-        // 初始化
         syncTime();
         setInterval(updateTime, 1000);
     </script>
