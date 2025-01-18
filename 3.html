@@ -33,35 +33,70 @@
             font-size: 9vw;
             margin-top: 0.5rem;
         }
-        .controls {
+        .status {
             position: absolute;
+            bottom: 10px;
+            right: 10px;
+            font-size: 0.7rem;
+            color: rgba(255, 255, 255, 0.4);
+            background-color: rgba(0, 0, 0, 0.3);
+            padding: 5px;
+            border-radius: 5px;
+        }
+
+        /* 调整按钮位置为左下角 */
+        .controls {
+            position: fixed;
             bottom: 30px;
-            left: 10px;
+            left: 30px;
+            display: flex;
+            flex-direction: row; /* 改为水平排列 */
+            gap: 20px; /* 按钮间距 */
+            background-color: rgba(0, 0, 0, 0.5);  /* 背景色与页面背景一致 */
+            padding: 15px;
+            border-radius: 10px;
+            z-index: 10;  /* 保证按钮浮动在最上层 */
+        }
+
+        .control-group {
             display: flex;
             flex-direction: column;
-            gap: 10px;
-            background-color: rgba(0, 0, 0, 0.5);
-            padding: 10px;
-            border-radius: 10px;
+            align-items: center; /* 垂直对齐 */
+            justify-content: space-between;
         }
+
         .button {
-            padding: 0.4rem 0.8rem;
-            font-size: 1rem;
-            color: #1e2127;
-            background-color: #ffffff;
-            border: 2px solid #1e2127;
+            padding: 0.5rem 1rem;  /* 统一按钮的长度和宽度 */
+            font-size: 1.5rem;
+            color: #ffffff;
+            background-color: transparent; /* 背景透明 */
+            border: 2px solid #ffffff;
             border-radius: 0.5rem;
             cursor: pointer;
-            transition: background-color 0.3s, transform 0.3s;
+            transition: background-color 0.3s, transform 0.3s, box-shadow 0.3s;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3);  /* 为按钮增加阴影 */
         }
+
+        /* 按钮的悬浮效果 */
         .button:hover {
-            background-color: #f1f1f1;
-            transform: scale(1.1);
+            background-color: rgba(255, 255, 255, 0.2); /* 悬浮时的透明背景 */
+            transform: scale(1.1); /* 放大按钮 */
+            box-shadow: 0px 6px 10px rgba(0, 0, 0, 0.4); /* 增强阴影效果 */
         }
+
+        /* 按下按钮时的效果 */
+        .button:active {
+            background-color: rgba(255, 255, 255, 0.3);
+            transform: scale(1);
+            box-shadow: none;
+        }
+
         .label {
-            font-size: 0.8rem;
+            font-size: 1rem;
             color: #ffffff;
         }
+
+        /* 全屏按钮样式，保持位置不变 */
         .fullscreen-button {
             position: absolute;
             top: 10px;
@@ -73,9 +108,24 @@
             border: none;
             border-radius: 5px;
             cursor: pointer;
+            z-index: 20;  /* 确保全屏按钮在所有元素上层 */
         }
+
         .fullscreen-button:hover {
             background-color: #444444;
+        }
+
+        /* 添加按钮的响应式设计 */
+        @media (max-width: 768px) {
+            .button {
+                font-size: 1.2rem;
+                padding: 0.3rem 0.6rem;
+            }
+
+            .controls {
+                padding: 10px;
+                left: 10px; /* 确保按钮不会被屏幕边缘挡住 */
+            }
         }
     </style>
 </head>
@@ -87,48 +137,86 @@
     <div class="weekday" id="weekday">加载中...</div>
 
     <div class="controls" id="controls">
-        <div>
-            <span class="label">日期字体大小:</span>
-            <button class="button" onclick="adjustFontSize('date', 5)">增大</button>
-            <button class="button" onclick="adjustFontSize('date', -5)">减小</button>
+        <div class="control-group">
+            <span class="label">日期</span>
+            <button class="button" onclick="adjustFontSize('date', 5)">+</button>
+            <button class="button" onclick="adjustFontSize('date', -5)">-</button>
         </div>
-        <div>
-            <span class="label">时间字体大小:</span>
-            <button class="button" onclick="adjustFontSize('time', 10)">增大</button>
-            <button class="button" onclick="adjustFontSize('time', -10)">减小</button>
+        <div class="control-group">
+            <span class="label">时间</span>
+            <button class="button" onclick="adjustFontSize('time', 10)">+</button>
+            <button class="button" onclick="adjustFontSize('time', -10)">-</button>
         </div>
-        <div>
-            <span class="label">星期字体大小:</span>
-            <button class="button" onclick="adjustFontSize('weekday', 5)">增大</button>
-            <button class="button" onclick="adjustFontSize('weekday', -5)">减小</button>
+        <div class="control-group">
+            <span class="label">星期</span>
+            <button class="button" onclick="adjustFontSize('weekday', 5)">+</button>
+            <button class="button" onclick="adjustFontSize('weekday', -5)">-</button>
         </div>
     </div>
 
+    <div class="status" id="status">校正</div>
+
     <script>
-        let isFullScreen = false;
+        const API_URL = 'https://timeapi.io/api/Time/current/zone?timeZone=Asia/Shanghai';
+        let serverTime = null;
+        let lastSyncTime = null;
+        let localPerfStart = null;
+        let roundTripTime = 0;
+        let adjustmentFrequency = 10000; // 初始校正间隔为10秒
+        let lastOffset = 0;  // 记录上次校正的偏差
 
-        function enterFullScreen() {
-            const fullscreenButton = document.getElementById('fullscreenButton');
-            const controls = document.getElementById('controls');
+        async function syncTime() {
+            try {
+                const start = performance.now();
+                const response = await fetch(API_URL);
+                const data = await response.json();
+                serverTime = new Date(data.dateTime).getTime();
+                const end = performance.now();
+                roundTripTime = end - start;
 
-            document.documentElement.requestFullscreen().then(() => {
-                fullscreenButton.style.display = "none";
-                controls.style.display = "none";
-                isFullScreen = true;
-            });
+                // 假定往返时间的一半为网络延迟
+                const adjustedOffset = roundTripTime / 2;
+                serverTime += adjustedOffset;
+
+                // 记录同步时的本地性能计时器时间
+                localPerfStart = performance.now();
+                lastSyncTime = serverTime;
+
+                // 每次校正后显示从0到调整的变化
+                updateStatus(lastOffset, adjustedOffset);
+                lastOffset = adjustedOffset;  // 更新最后的偏差值
+            } catch (error) {
+                console.error('时间同步失败：', error);
+            }
         }
 
-        // 使用全屏事件监听退出全屏后显示按钮
-        document.addEventListener('fullscreenchange', () => {
-            const fullscreenButton = document.getElementById('fullscreenButton');
-            const controls = document.getElementById('controls');
-
-            if (!document.fullscreenElement) {
-                fullscreenButton.style.display = "block";
-                controls.style.display = "flex";
-                isFullScreen = false;
+        function updateTime() {
+            if (serverTime === null || lastSyncTime === null || localPerfStart === null) {
+                return;
             }
-        });
+
+            // 计算从上次同步以来经过的精确毫秒数
+            const elapsedSinceSync = performance.now() - localPerfStart;
+
+            // 当前的精准服务器时间
+            const currentTime = new Date(lastSyncTime + elapsedSinceSync);
+
+            // 更新界面显示
+            const timeStr = currentTime.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const dateStr = `${currentTime.getFullYear()}年${String(currentTime.getMonth() + 1).padStart(2, '0')}月${String(currentTime.getDate()).padStart(2, '0')}日`;
+            const weekdayStr = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"][currentTime.getDay()];
+
+            document.getElementById('time').textContent = timeStr;
+            document.getElementById('date').textContent = dateStr;
+            document.getElementById('weekday').textContent = weekdayStr;
+        }
+
+        function updateStatus(previousOffset, currentOffset) {
+            const statusElement = document.getElementById('status');
+            const difference = currentOffset - previousOffset;
+            // 显示延迟和校正偏差
+            statusElement.textContent = `延迟：${Math.round(roundTripTime)}ms，校正${difference >= 0 ? '+' : ''}${Math.round(difference)}ms`;
+        }
 
         function adjustFontSize(elementId, delta) {
             const element = document.getElementById(elementId);
@@ -137,16 +225,33 @@
             element.style.fontSize = `${newSize}px`;
         }
 
-        setInterval(() => {
-            const now = new Date();
-            const dateStr = `${now.getFullYear()}年${(now.getMonth() + 1).toString().padStart(2, '0')}月${now.getDate().toString().padStart(2, '0')}日`;
-            const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-            const weekdayStr = now.toLocaleDateString('zh-CN', { weekday: 'long' });
+        function enterFullScreen() {
+            const fullscreenButton = document.getElementById('fullscreenButton');
+            const controls = document.getElementById('controls');
+            document.documentElement.requestFullscreen().then(() => {
+                fullscreenButton.style.display = "none";
+                controls.style.display = "none";
+            });
+        }
 
-            document.getElementById('date').textContent = dateStr;
-            document.getElementById('time').textContent = timeStr;
-            document.getElementById('weekday').textContent = weekdayStr;
-        }, 1000);
+        // 使用全屏事件监听退出全屏后显示按钮
+        document.addEventListener('fullscreenchange', () => {
+            const fullscreenButton = document.getElementById('fullscreenButton');
+            const controls = document.getElementById('controls');
+            if (!document.fullscreenElement) {
+                fullscreenButton.style.display = "block";
+                controls.style.display = "flex";
+            }
+        });
+
+        // 页面加载后立即获取时间
+        syncTime();
+
+        // 每秒更新显示
+        setInterval(updateTime, 1000);
+
+        // 每10秒重新校正一次
+        setInterval(syncTime, 10000);
     </script>
 </body>
 </html>
