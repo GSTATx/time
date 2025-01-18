@@ -62,7 +62,7 @@
             font-size: 0.8rem;
             color: #ffffff;
         }
-        .fullscreen-button, .exit-fullscreen-button {
+        .fullscreen-button {
             position: absolute;
             top: 10px;
             left: 10px;
@@ -74,14 +74,13 @@
             border-radius: 5px;
             cursor: pointer;
         }
-        .fullscreen-button:hover, .exit-fullscreen-button:hover {
+        .fullscreen-button:hover {
             background-color: #444444;
         }
     </style>
 </head>
 <body>
     <button class="fullscreen-button" id="fullscreenButton" onclick="enterFullScreen()">全屏</button>
-    <button class="exit-fullscreen-button" id="exitFullscreenButton" onclick="exitFullScreen()" style="display: none;">退出全屏</button>
 
     <div class="date" id="date">加载中...</div>
     <div class="time" id="time">加载中...</div>
@@ -110,33 +109,26 @@
 
         function enterFullScreen() {
             const fullscreenButton = document.getElementById('fullscreenButton');
-            const exitFullscreenButton = document.getElementById('exitFullscreenButton');
             const controls = document.getElementById('controls');
-
-            if (isFullScreen) return; // 防止重复进入
 
             document.documentElement.requestFullscreen().then(() => {
                 fullscreenButton.style.display = "none";
                 controls.style.display = "none";
-                exitFullscreenButton.style.display = "block";
                 isFullScreen = true;
             });
         }
 
-        function exitFullScreen() {
+        // 使用全屏事件监听退出全屏后显示按钮
+        document.addEventListener('fullscreenchange', () => {
             const fullscreenButton = document.getElementById('fullscreenButton');
-            const exitFullscreenButton = document.getElementById('exitFullscreenButton');
             const controls = document.getElementById('controls');
 
-            if (!isFullScreen) return; // 防止重复退出
-
-            document.exitFullscreen().then(() => {
+            if (!document.fullscreenElement) {
                 fullscreenButton.style.display = "block";
                 controls.style.display = "flex";
-                exitFullscreenButton.style.display = "none";
                 isFullScreen = false;
-            });
-        }
+            }
+        });
 
         function adjustFontSize(elementId, delta) {
             const element = document.getElementById(elementId);
