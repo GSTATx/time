@@ -44,47 +44,44 @@
             border-radius: 5px;
         }
 
-        /* 调整按钮位置为左下角 */
         .controls {
             position: fixed;
             bottom: 30px;
             left: 30px;
             display: flex;
-            flex-direction: row; /* 改为水平排列 */
-            gap: 20px; /* 按钮间距 */
-            background-color: rgba(0, 0, 0, 0.5);  /* 背景色与页面背景一致 */
+            flex-direction: row;
+            gap: 20px;
+            background-color: rgba(0, 0, 0, 0.5);
             padding: 15px;
             border-radius: 10px;
-            z-index: 10;  /* 保证按钮浮动在最上层 */
+            z-index: 10;
         }
 
         .control-group {
             display: flex;
             flex-direction: column;
-            align-items: center; /* 垂直对齐 */
+            align-items: center;
             justify-content: space-between;
         }
 
         .button {
-            padding: 0.5rem 1rem;  /* 统一按钮的长度和宽度 */
+            padding: 0.5rem 1rem;
             font-size: 1.5rem;
             color: #ffffff;
-            background-color: transparent; /* 背景透明 */
+            background-color: transparent;
             border: 2px solid #ffffff;
             border-radius: 0.5rem;
             cursor: pointer;
             transition: background-color 0.3s, transform 0.3s, box-shadow 0.3s;
-            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3);  /* 为按钮增加阴影 */
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3);
         }
 
-        /* 按钮的悬浮效果 */
         .button:hover {
-            background-color: rgba(255, 255, 255, 0.2); /* 悬浮时的透明背景 */
-            transform: scale(1.1); /* 放大按钮 */
-            box-shadow: 0px 6px 10px rgba(0, 0, 0, 0.4); /* 增强阴影效果 */
+            background-color: rgba(255, 255, 255, 0.2);
+            transform: scale(1.1);
+            box-shadow: 0px 6px 10px rgba(0, 0, 0, 0.4);
         }
 
-        /* 按下按钮时的效果 */
         .button:active {
             background-color: rgba(255, 255, 255, 0.3);
             transform: scale(1);
@@ -96,7 +93,6 @@
             color: #ffffff;
         }
 
-        /* 全屏按钮样式，保持位置不变 */
         .fullscreen-button {
             position: absolute;
             top: 10px;
@@ -108,14 +104,13 @@
             border: none;
             border-radius: 5px;
             cursor: pointer;
-            z-index: 20;  /* 确保全屏按钮在所有元素上层 */
+            z-index: 20;
         }
 
         .fullscreen-button:hover {
             background-color: #444444;
         }
 
-        /* 添加按钮的响应式设计 */
         @media (max-width: 768px) {
             .button {
                 font-size: 1.2rem;
@@ -124,7 +119,7 @@
 
             .controls {
                 padding: 10px;
-                left: 10px; /* 确保按钮不会被屏幕边缘挡住 */
+                left: 10px;
             }
         }
     </style>
@@ -162,11 +157,24 @@
         let lastSyncTime = null;
         let localPerfStart = null;
         let roundTripTime = 0;
-        let adjustmentFrequency = 10000; // 初始校正间隔为10秒
-        let lastOffset = 0;  // 记录上次校正的偏差
+        let adjustmentFrequency = 10000;
+        let lastOffset = 0;
+        let syncInterval = 10000; // 默认的校正间隔时间
 
         async function syncTime() {
             try {
+                if (roundTripTime > 4500) {
+                    syncInterval = 60000;  // 延迟大于4500ms时每分钟校正一次
+                } else if (roundTripTime > 3500) {
+                    syncInterval = 30000;  // 延迟大于3500ms时每30秒校正一次
+                } else if (roundTripTime > 2000) {
+                    syncInterval = 20000;  // 延迟大于2000ms时每20秒校正一次
+                } else if (roundTripTime > 500) {
+                    syncInterval = 10000;  // 延迟大于500ms时每10秒校正一次
+                } else {
+                    syncInterval = 1000;  // 延迟低于500ms时每秒校正一次
+                }
+
                 const start = performance.now();
                 const response = await fetch(API_URL);
                 const data = await response.json();
@@ -182,9 +190,8 @@
                 localPerfStart = performance.now();
                 lastSyncTime = serverTime;
 
-                // 每次校正后显示从0到调整的变化
                 updateStatus(lastOffset, adjustedOffset);
-                lastOffset = adjustedOffset;  // 更新最后的偏差值
+                lastOffset = adjustedOffset;
             } catch (error) {
                 console.error('时间同步失败：', error);
             }
@@ -195,13 +202,9 @@
                 return;
             }
 
-            // 计算从上次同步以来经过的精确毫秒数
             const elapsedSinceSync = performance.now() - localPerfStart;
-
-            // 当前的精准服务器时间
             const currentTime = new Date(lastSyncTime + elapsedSinceSync);
 
-            // 更新界面显示
             const timeStr = currentTime.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
             const dateStr = `${currentTime.getFullYear()}年${String(currentTime.getMonth() + 1).padStart(2, '0')}月${String(currentTime.getDate()).padStart(2, '0')}日`;
             const weekdayStr = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"][currentTime.getDay()];
@@ -214,8 +217,7 @@
         function updateStatus(previousOffset, currentOffset) {
             const statusElement = document.getElementById('status');
             const difference = currentOffset - previousOffset;
-            // 显示延迟和校正偏差
-            statusElement.textContent = `延迟：${Math.round(roundTripTime)}ms，校正${difference >= 0 ? '+' : ''}${Math.round(difference)}ms`;
+            statusElement.textContent = `延迟：${Math.round(roundTripTime)}ms，校正：${difference >= 0 ? '+' : ''}${Math.round(difference)}ms`;
         }
 
         function adjustFontSize(elementId, delta) {
@@ -234,7 +236,6 @@
             });
         }
 
-        // 使用全屏事件监听退出全屏后显示按钮
         document.addEventListener('fullscreenchange', () => {
             const fullscreenButton = document.getElementById('fullscreenButton');
             const controls = document.getElementById('controls');
@@ -244,14 +245,9 @@
             }
         });
 
-        // 页面加载后立即获取时间
         syncTime();
-
-        // 每秒更新显示
         setInterval(updateTime, 1000);
-
-        // 每10秒重新校正一次
-        setInterval(syncTime, 10000);
+        setInterval(syncTime, syncInterval);  // 动态调整校正的时间间隔
     </script>
 </body>
 </html>
