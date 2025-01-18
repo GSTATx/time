@@ -89,13 +89,6 @@
             text-overflow: ellipsis;
             overflow: hidden;
         }
-        .counter {
-            position: absolute;
-            bottom: 10px;
-            right: 10px;
-            font-size: 12px;
-            color: #B0B0B0;
-        }
         .fullscreen-button {
             position: absolute;
             top: 10px;
@@ -110,25 +103,6 @@
         }
         .fullscreen-button:hover {
             background-color: #444444;
-        }
-        .request-controls {
-            position: absolute;
-            bottom: 50px; /* 放在请求计数的上方 */
-            right: 10px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            z-index: 100;
-        }
-        .request-controls input {
-            font-size: 0.8rem;
-            text-align: center;
-            width: 50px;
-            margin-top: 5px;
-            padding: 5px;
-        }
-        .request-controls button {
-            background-color: #000000;
         }
     </style>
 </head>
@@ -165,44 +139,35 @@
         <p>延迟：0ms</p>
     </div>
 
-    <div class="counter" id="counter">请求次数：0</div>
-
-    <div class="request-controls" id="requestControls">
-        <button class="button" id="pauseButton" onclick="toggleRequest()">暂停请求</button>
-        <input class="button" type="text" id="requestRate" value="10" readonly />
-    </div>
-
     <script>
-        let offset = 0;
-        let requestCount = 0;
-        let isRequesting = true;
-        let requestInterval = 100;
-        let maxRequests = 10000000;
-        let isFullScreen = false;
+        let lastSyncTime = Date.now();  // 上次同步的时间
+        let syncDelay = 0;              // 当前延迟，用于控制同步时机
 
         async function syncTime() {
-            if (!isRequesting) return;
-
             try {
                 const start = performance.now();
                 const response = await fetch('https://timeapi.io/api/Time/current/zone?timeZone=Asia/Shanghai');
                 const data = await response.json();
-                
-                // 请求成功后，累加请求次数
-                requestCount++;
-
                 const serverTime = new Date(data.dateTime);
                 const localTime = new Date();
 
-                updateTime(serverTime, localTime);
+                // 计算时间间隔
+                const now = Date.now();
+                const elapsed = now - lastSyncTime;
+                lastSyncTime = now;
 
-                const end = performance.now();
+                // 计算延迟并调整更新时间
+                const delay = (performance.now() - start).toFixed(2);
+                syncDelay = Math.max(1000 - elapsed, 0);  // 保证至少1秒间隔
 
-                const delay = (end - start).toFixed(2);
-                updateRequestInfo(`请求时间：${formatTime(localTime)}，返回时间：${formatTime(serverTime)}，延迟：${delay}ms`);
+                // 调整更新时间，使其发生在下一秒的00毫秒时刻
+                const adjustTime = (1000 - (now % 1000) + syncDelay + 1000) % 1000;  // 向前推一秒
 
-                // 更新请求次数显示
-                updateElement("counter", `请求次数：${requestCount}`);
+                setTimeout(() => {
+                    updateTime(serverTime, localTime);
+                    updateRequestInfo(`请求时间：${formatTime(localTime)}，返回时间：${formatTime(serverTime)}，延迟：${delay}ms`);
+                }, adjustTime);
+
             } catch (error) {
                 console.error('同步时间失败：', error);
                 updateRequestInfo(`请求失败，时间：${new Date().toLocaleTimeString()}`);
@@ -241,12 +206,13 @@
 
         function updateRequestInfo(message) {
             const requestInfo = document.getElementById('requestInfo');
-            const p = document.createElement('p');
-            p.textContent = message;
-            requestInfo.appendChild(p);
-
-            if (requestInfo.children.length > 3) {
-                requestInfo.removeChild(requestInfo.firstChild);
+            const p = requestInfo.querySelector('p');
+            if (p) {
+                p.textContent = message;
+            } else {
+                const newP = document.createElement('p');
+                newP.textContent = message;
+                requestInfo.appendChild(newP);
             }
         }
 
@@ -271,7 +237,7 @@
                     elem.msRequestFullscreen();
                 }
                 document.getElementById("controls").style.display = "none";
-                document.getElementById("requestControls").style.display = "none";
+                document.getElementById("requestInfo").style.display = "none"; 
                 isFullScreen = true;
                 document.getElementById("fullscreenButton").textContent = "退出全屏";
             } else {
@@ -285,38 +251,12 @@
                     document.msExitFullscreen();
                 }
                 document.getElementById("controls").style.display = "flex";
-                document.getElementById("requestControls").style.display = "flex";
+                document.getElementById("requestInfo").style.display = "block"; 
                 isFullScreen = false;
                 document.getElementById("fullscreenButton").textContent = "全屏";
             }
         }
 
-        let requestIntervalHandle;
-
-        function toggleRequest() {
-            const requestRateInput = document.getElementById('requestRate');
-            if (isRequesting) {
-                isRequesting = false;
-                document.getElementById('pauseButton').textContent = '恢复请求';
-                requestRateInput.readOnly = false;  // 允许编辑文本框
-            } else {
-                isRequesting = true;
-                document.getElementById('pauseButton').textContent = '暂停请求';
-                requestRateInput.readOnly = true;  // 禁止编辑文本框
-                requestInterval = parseInt(requestRateInput.value) || 10;
-                if (requestIntervalHandle) clearInterval(requestIntervalHandle);
-                requestIntervalHandle = setInterval(syncTime, 1000 / requestInterval);  // 更新请求频率
-            }
-        }
-
-        setInterval(syncTime, requestInterval);
-
-        setInterval(() => {
-            if (requestCount >= maxRequests) {
-                requestCount = 0;
-            }
-            document.getElementById('counter').textContent = `请求次数：${requestCount}`;
-        }, 1000);
+        setInterval(syncTime, 1000);
     </script>
-</body>
-</html>
+</
